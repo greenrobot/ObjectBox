@@ -60,22 +60,23 @@ public abstract class RxQuery {
     }
 
     static <T> void createListItemEmitter(final Query<T> query, final FlowableEmitter<T> emitter) {
+        final FlowableEmitter<T> serializedEmitter = emitter.serialize();
         final DataSubscription dataSubscription = query.subscribe().observer(new DataObserver<List<T>>() {
             @Override
             public void onData(List<T> data) {
                 for (T datum : data) {
-                    if (emitter.isCancelled()) {
+                    if (serializedEmitter.isCancelled()) {
                         return;
                     } else {
-                        emitter.onNext(datum);
+                        serializedEmitter.onNext(datum);
                     }
                 }
-                if (!emitter.isCancelled()) {
-                    emitter.onComplete();
+                if (!serializedEmitter.isCancelled()) {
+                    serializedEmitter.onComplete();
                 }
             }
         });
-        emitter.setCancellable(new Cancellable() {
+        serializedEmitter.setCancellable(new Cancellable() {
             @Override
             public void cancel() throws Exception {
                 dataSubscription.cancel();
@@ -92,15 +93,16 @@ public abstract class RxQuery {
         return Observable.create(new ObservableOnSubscribe<List<T>>() {
             @Override
             public void subscribe(final ObservableEmitter<List<T>> emitter) throws Exception {
+                final ObservableEmitter<List<T>> serializedEmitter = emitter.serialize();
                 final DataSubscription dataSubscription = query.subscribe().observer(new DataObserver<List<T>>() {
                     @Override
                     public void onData(List<T> data) {
-                        if (!emitter.isDisposed()) {
-                            emitter.onNext(data);
+                        if (!serializedEmitter.isDisposed()) {
+                            serializedEmitter.onNext(data);
                         }
                     }
                 });
-                emitter.setCancellable(new Cancellable() {
+                serializedEmitter.setCancellable(new Cancellable() {
                     @Override
                     public void cancel() throws Exception {
                         dataSubscription.cancel();
